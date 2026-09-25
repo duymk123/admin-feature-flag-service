@@ -11,9 +11,9 @@ Dự án này là tầng điều khiển trung tâm (Control Plane) trong hệ s
 | Tầng kiến trúc (Plane) | Tên Service / Repository | Vai trò & Trách nhiệm chính | Trạng thái Repo |
 | :--- | :--- | :--- | :---: |
 | **1. Control Plane** | [🏛️ `admin-feature-flag-service`](https://github.com/duymk123/admin-feature-flag-service) | **👉 Đang ở đây (Repo này):** Quản lý đối tác (Tenants), danh mục cờ toàn cục (Master Features), cấp quyền cờ cho từng tenant | **Hoàn thành** |
-| **2. Tenant Flag Plane** | [🚩 `feature-flag-service`](https://github.com/duymk123/feature-flag-service) | Cấu hình rule theo role/user/percentage, đóng gói & đẩy file snapshot cấu hình sang ứng dụng | [Xem README](https://github.com/duymk123/feature-flag-service#readme) |
-| **3. Core SDK Lib** | [📦 `feature-flag-lib`](https://github.com/duymk123/feature-flag-lib) | Thư viện Java SDK in-memory evaluation (~0ms latency), cung cấp annotation `@RequireFeature` | Đã tích hợp |
-| **4. Business App Plane** | [🛒 `tracking-order`](https://github.com/duymk123/Tracking-Order) | Nghiệp vụ E-commerce, Order Tracking, nhận file snapshot và thực thi cờ | [Xem README](https://github.com/duymk123/Tracking-Order#readme) |
+| **2. Tenant Flag Plane** | [🚩 `feature-flag-service`](https://github.com/duymk123/feature-flag-service) | Cấu hình rule theo role/user/percentage, đóng gói & đẩy file snapshot cấu hình sang ứng dụng | [Xem README](https://github.com/duymk123/feature-flag-service#readme) • **Hoàn thành** |
+| **3. Core SDK Lib** | [📦 `feature-flag-lib`](https://github.com/duymk123/feature-flag-lib) | Thư viện Java SDK in-memory evaluation (~0ms latency), cung cấp annotation `@RequireFeature` | [Xem Repo](https://github.com/duymk123/feature-flag-lib) • **Đã tích hợp** |
+| **4. Business App Plane** | [🛒 `tracking-order`](https://github.com/duymk123/Tracking-Order) | Nghiệp vụ E-commerce, Order Tracking, nhận file snapshot và thực thi cờ | [Xem README](https://github.com/duymk123/Tracking-Order#readme) • **Hoàn thành** |
 
 ```
 [ admin-feature-flag-service ] ──(Grant cờ)──► [ feature-flag-service ] ──(Sync File)──► [ tracking-order ]
