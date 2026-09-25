@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Báo Cáo Kiến Trúc & Luồng Hoạt Động Hệ Thống Feature Flag Đa Tenant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #111827;
+      --bg-card-hover: #1f2937;
+      --bg-subtle: #1e293b;
+      --border-color: #334155;
+      --border-accent: #38bdf8;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.15);
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.15);
+      --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.15);
+      --danger: #ef4444;
+      --purple: #a855f7;
+      --indigo: #6366f1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      line-height: 1.65;
+      padding: 30px 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #022c22 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 40px;
+      margin-bottom: 35px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    }
+
+    header::after {
+      content: "";
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .badge-top {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--primary);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1.3;
+      margin-bottom: 12px;
+      background: linear-gradient(to right, #ffffff, #93c5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 16px;
+      max-width: 800px;
+    }
+
+    /* Navigation Quick Links */
+    .quick-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 25px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .quick-nav a {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .quick-nav a:hover {
+      background: var(--primary);
+      color: #0b0f19;
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+
+    /* Section styling */
+    section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .section-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 14px;
+    }
+
+    .section-title i {
+      color: var(--primary);
+      background: var(--primary-glow);
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 18px;
+    }
+
+    /* Cards Grid */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    .card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--primary);
+      transform: translateY(-3px);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .card-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .icon-admin { background: rgba(168, 85, 247, 0.2); color: var(--purple); }
+    .icon-ff { background: rgba(56, 189, 248, 0.2); color: var(--primary); }
+    .icon-app { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+
+    .card h3 {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .card p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .card-tags {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    /* Interactive / Diagrams */
+    .flow-diagram {
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 28px;
+      margin: 25px 0;
+      position: relative;
+    }
+
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      position: relative;
+      padding-bottom: 30px;
+    }
+
+    .flow-step:last-child {
+      padding-bottom: 0;
+    }
+
+    .flow-step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 21px;
+      top: 44px;
+      bottom: 0;
+      width: 2px;
+      background: dashed #334155;
+    }
+
+    .step-num {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--bg-subtle);
+      border: 2px solid var(--primary);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+      flex-shrink: 0;
+      z-index: 1;
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .step-content {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 18px 22px;
+    }
+
+    .step-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .step-desc {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    /* API Tables */
+    .table-container {
+      overflow-x: auto;
+      margin: 20px 0;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13.5px;
+    }
+
+    th {
+      background: #0f172a;
+      color: var(--text-secondary);
+      font-weight: 600;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+      font-size: 11.5px;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .method {
+      font-family: 'Fira Code', monospace;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .method.post { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .method.get { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .method.put { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .method.delete { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    .endpoint {
+      font-family: 'Fira Code', monospace;
+      font-size: 12.5px;
+      color: #f1f5f9;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* Code Snippets */
+    .code-box {
+      background: #080c14;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 14px 0;
+      font-family: 'Fira Code', monospace;
+    }
+
+    .code-header {
+      background: #0f172a;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1e293b;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .code-lang {
+      color: var(--primary);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    pre {
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #e2e8f0;
+    }
+
+    .kw { color: #f43f5e; font-weight: 600; }
+    .fn { color: #38bdf8; }
+    .str { color: #34d399; }
+    .cm { color: #64748b; font-style: italic; }
+    .num { color: #fb923c; }
+
+    /* Callout Boxes */
+    .callout {
+      padding: 18px 22px;
+      border-radius: 12px;
+      margin: 20px 0;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .callout.info {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: #bae6fd;
+    }
+
+    .callout.success {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: #a7f3d0;
+    }
+
+    .callout.warning {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      color: #fde68a;
+    }
+
+    .callout i {
+      font-size: 20px;
+      margin-top: 2px;
+    }
+
+    /* Comparison columns */
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    @media (max-width: 768px) {
+      .comparison-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .comp-col {
+      background: var(--bg-subtle);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      padding: 22px;
+    }
+
+    .comp-col h4 {
+      font-size: 15px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .comp-col ul {
+      padding-left: 20px;
+      color: var(--text-secondary);
+      font-size: 13.5px;
+    }
+
+    .comp-col ul li {
+      margin-bottom: 8px;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 50px;
+      padding-top: 25px;
+      border-top: 1px solid var(--border-color);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="badge-top"><i class="fa-solid fa-network-wired"></i> Architecture Whitepaper</div>
+    <h1>Phân Tích Chi Tiết Kiến Trúc & Luồng Gọi Service</h1>
+    <p class="subtitle">
+      Tài liệu phân tích chuyên sâu về cách thức giao tiếp đa dịch vụ, bản chất dữ liệu gửi giữa Admin Portal & Feature Flag Service, cơ chế bảo mật xác thực, và luồng nghiệp vụ 3 tầng: <strong>Super Admin &rarr; Seller &rarr; End User</strong>.
+    </p>
+
+    <div class="quick-nav">
+      <a href="#section-overview"><i class="fa-solid fa-cube"></i> Tổng Quan 3 Dịch Vụ</a>
+      <a href="#section-matrix"><i class="fa-solid fa-arrow-right-arrow-left"></i> Ma Trận API Gọi Nhau</a>
+      <a href="#section-context-explanation"><i class="fa-solid fa-circle-question"></i> Admin Gửi Gì Sang Feature-Flag?</a>
+      <a href="#section-auth-explanation"><i class="fa-solid fa-lock"></i> Tại Sao Không Cần Login?</a>
+      <a href="#section-workflow"><i class="fa-solid fa-diagram-project"></i> Luồng Nghiệp Vụ 3 Tầng & Code</a>
+      <a href="#section-summary"><i class="fa-solid fa-shield-check"></i> Bảng Phân Quyền</a>
+    </div>
+  </header>
+
+  <!-- SECTION 1: TỔNG QUAN -->
+  <section id="section-overview">
+    <div class="section-title">
+      <i class="fa-solid fa-sitemap"></i>
+      1. Tổng Quan Kiến Trúc 3 Dịch Vụ
+    </div>
+    <p style="color: var(--text-secondary); margin-bottom: 16px;">
+      Hệ thống áp dụng kiến trúc <strong>Decoupled Multi-Tenant Feature Flagging</strong> (Tách rời quản trị tập trung và đánh giá cục bộ tốc độ cao). Hệ thống gồm 3 thành phần chính:
+    </p>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon icon-admin"><i class="fa-solid fa-crown"></i></div>
+          <div>
+            <h3>Admin Feature Flag Service</h3>
+            <span style="font-size: 11px; color: var(--purple); font-weight: 600;">Port 8084 (Container)</span>
+          </div>
+        </div>
+        <p>
+          Dành riêng cho <strong>Super Admin</strong> quản trị toàn hệ thống. Quản lý danh mục Tenant (Công ty đối tác), danh mục cờ tổng (Master Features), và thực hiện <strong>Cấp phép cờ (Licensing / Granting)</strong> cho từng Tenant.
+        </p>
+        <div class="card-tags">
+          <span class="tag">Database: admin_feature_flag_db</span>
+          <span class="tag">Vai trò: Cấp phép</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon icon-ff"><i class="fa-solid fa-sliders"></i></div>
+          <div>
+            <h3>Feature Flag Service</h3>
+            <span style="font-size: 11px; color: var(--primary); font-weight: 600;">Port 8081 (Container)</span>
+          </div>
+        </div>
+        <p>
+          "Bộ não" quản lý cờ trung tâm, tích hợp <strong>Togglz Engine</strong>. Quản lý trạng thái Bật/Tắt của Seller, lưu trữ các chiến lược nâng cao (Multi-strategy Rules: user, role, IP, release date) và chịu trách nhiệm đóng gói Snapshot để đẩy xuống các tenant.
+        </p>
+        <div class="card-tags">
+          <span class="tag">Database: feature_flag_db</span>
+          <span class="tag">Vai trò: Lưu trữ & Snapshot Dispatcher</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon icon-app"><i class="fa-solid fa-store"></i></div>
+          <div>
+            <h3>Tracking Order (Business App)</h3>
+            <span style="font-size: 11px; color: var(--success); font-weight: 600;">Port 8082 (VTIT) & 8083 (KMA)</span>
+          </div>
+        </div>
+        <p>
+          Ứng dụng nghiệp vụ TMĐT phục vụ khách hàng. Mỗi Tenant có một instance chạy riêng (Database riêng). Nhận snapshot từ Feature Flag Service, lưu vào bảng <code>feature_flag_configs</code> và <strong>đánh giá cờ tại chỗ (Local In-Memory Evaluation) với độ trễ 0ms</strong>.
+        </p>
+        <div class="card-tags">
+          <span class="tag">Database: tracking_order (A/B)</span>
+          <span class="tag">Vai trò: Local Execution</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2: MA TRẬN API GỌI NHAU -->
+  <section id="section-matrix">
+    <div class="section-title">
+      <i class="fa-solid fa-arrow-right-arrow-left"></i>
+      2. Ma Trận Tương Tác: Service Nào Gọi Service Nào & API Gì?
+    </div>
+    <p style="color: var(--text-secondary); margin-bottom: 16px;">
+      Dưới đây là chi tiết tất cả các luồng giao tiếp HTTP REST giữa các bên trong toàn bộ vòng đời của hệ thống:
+    </p>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Bên Gọi (Caller)</th>
+            <th>Bên Nhận (Callee)</th>
+            <th>API Endpoint</th>
+            <th>Nội Dung Truyền Đi (Payload)</th>
+            <th>Mục Đích / Ý Nghĩa</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Admin Frontend</strong><br><small style="color: var(--text-muted)">Port 5174</small></td>
+            <td><strong>Admin Service</strong><br><small style="color: var(--text-muted)">Port 8084</small></td>
+            <td><span class="method post">POST</span> <span class="endpoint">/api/v1/admin/tenants/{code}/grants/toggle</span></td>
+            <td><code>{ featureKey, isGranted }</code></td>
+            <td>Super Admin gạt công tắc cấp/thu hồi cờ cho một Tenant cụ thể.</td>
+          </tr>
+          <tr>
+            <td><strong>Admin Service</strong><br><small style="color: var(--purple)">FeatureFlagServiceClient</small></td>
+            <td><strong>Feature Flag Service</strong><br><small style="color: var(--primary)">Port 8081</small></td>
+            <td><span class="method put">PUT</span> <span class="endpoint">/api/v1/flags/customers/{code}/features/{flagName}</span></td>
+            <td><code>CustomerFeatureFlagSyncReq<br>{ isGranted, enabled }</code></td>
+            <td>Đồng bộ quyền cấp phép cờ sang Feature Flag Service để cập nhật bảng <code>customer_feature_flags</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>Admin Service</strong><br><small style="color: var(--purple)">FeatureFlagServiceClient</small></td>
+            <td><strong>Feature Flag Service</strong><br><small style="color: var(--primary)">Port 8081</small></td>
+            <td><span class="method post">POST</span> <span class="endpoint">/api/v1/flags/customers</span></td>
+            <td><code>{ customerCode, name, ipAddress, serviceUrl }</code></td>
+            <td>Đồng bộ thông tin Tenant (đặc biệt là <code>serviceUrl</code> ví dụ <code>http://tracking-order-a:8080</code>).</td>
+          </tr>
+          <tr>
+            <td><strong>Seller Console UI</strong><br><small style="color: var(--text-muted)">Tracking-Order Frontend</small></td>
+            <td><strong>Feature Flag Service</strong><br><small style="color: var(--primary)">Port 8081</small></td>
+            <td><span class="method get">GET</span> <span class="endpoint">/api/v1/flags/customers/{code}/features</span></td>
+            <td><em>Không có (Path Variable)</em></td>
+            <td>Seller mở giao diện quản lý: Lấy danh sách cờ <strong>đã được Super Admin cấp phép</strong> để hiển thị lên bảng.</td>
+          </tr>
+          <tr>
+            <td><strong>Seller Console UI</strong><br><small style="color: var(--text-muted)">Tracking-Order Frontend</small></td>
+            <td><strong>Feature Flag Service</strong><br><small style="color: var(--primary)">Port 8081</small></td>
+            <td><span class="method put">PUT</span> <span class="endpoint">/api/v1/flags/customers/{code}/features/{flagName}</span></td>
+            <td><code>{ enabled, strategies: [...], strategyLogic: "OR" }</code></td>
+            <td>Seller bật/tắt cờ của shop mình hoặc cài đặt chiến lược (ví dụ: chỉ cho user <code>vtit2</code>).</td>
+          </tr>
+          <tr>
+            <td><strong>Seller UI / Admin UI</strong><br><small style="color: var(--text-muted)">Nút "Apply to Tenant"</small></td>
+            <td><strong>Feature Flag Service</strong><br><small style="color: var(--primary)">Port 8081</small></td>
+            <td><span class="method post">POST</span> <span class="endpoint">/api/v1/flags/apply/{customerCode}</span></td>
+            <td><em>Không có (Path Variable)</em></td>
+            <td>Yêu cầu Feature Flag Service lọc cờ và đẩy snapshot sang container Tracking Order của Tenant đó.</td>
+          </tr>
+          <tr style="background: rgba(56, 189, 248, 0.04);">
+            <td><strong>Feature Flag Service</strong><br><small style="color: var(--primary)">pushSnapshot()</small></td>
+            <td><strong>Tracking Order Instance</strong><br><small style="color: var(--success)">Port 8080 (nội bộ)</small></td>
+            <td><span class="method post">POST</span> <span class="endpoint">/api/v1/feature-flags/sync</span><br><small style="color: var(--primary);">Header: X-Internal-Token</small></td>
+            <td><code>{ version, customerCode, features: [ { flagName, enabled, strategies, strategyLogic } ] }</code></td>
+            <td><strong>Điểm mấu chốt:</strong> Đẩy toàn bộ cấu hình cờ (chỉ những cờ được cấp) sang Tracking Order để nạp vào DB local.</td>
+          </tr>
+          <tr>
+            <td><strong>End-User App UI</strong><br><small style="color: var(--text-muted)">Trình duyệt khách hàng</small></td>
+            <td><strong>Tracking Order Instance</strong><br><small style="color: var(--success)">Port 8082 / 8083</small></td>
+            <td><span class="method post">POST</span> <span class="endpoint">/api/v1/auth/login</span></td>
+            <td><code>{ username, password }</code></td>
+            <td>Khách hàng đăng nhập: Tracking Order tự đánh giá cờ cục bộ và đính kèm map <code>features</code> trong Auth response.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- SECTION 3: ADMIN SERVICE GỬI GÌ? -->
+  <section id="section-context-explanation">
+    <div class="section-title">
+      <i class="fa-solid fa-magnifying-glass-chart"></i>
+      3. Admin-Service Gửi "Context" Hay Gửi Gì Sang Cho Feature-Flag?
+    </div>
+
+    <div class="callout info">
+      <i class="fa-solid fa-circle-info"></i>
+      <div>
+        <strong>Câu trả lời chuẩn xác:</strong><br>
+        Admin-Service <strong>KHÔNG GỬI CONTEXT NGƯỜI DÙNG</strong> sang cho Feature-Flag Service! Thay vào đó, Admin-Service chỉ gửi <strong>DỮ LIỆU CẤP PHÉP (LICENSING / GRANTING)</strong>.
+      </div>
+    </div>
+
+    <div class="comparison-grid">
+      <div class="comp-col">
+        <h4><i class="fa-solid fa-file-contract" style="color: var(--purple);"></i> Dữ liệu Admin-Service Gửi Sang:</h4>
+        <p style="color: var(--text-secondary); font-size: 13.5px; margin-bottom: 12px;">
+          Chỉ là các chính sách cấu hình dịch vụ tĩnh giữa Super Admin và Tenant:
+        </p>
+        <ul>
+          <li><strong>Thông tin Tenant:</strong> Mã tenant (<code>customerCode = "VTIT"</code>), tên công ty, địa chỉ service URL nội bộ (<code>http://tracking-order-a:8080</code>).</li>
+          <li><strong>Cờ cấp phép:</strong> <code>isGranted = true/false</code> (Tenant này có quyền sử dụng tính năng "Mua Ngay" hay không).</li>
+          <li><strong>Tín hiệu kích hoạt Apply:</strong> Ra lệnh cho Feature Flag Service đóng gói snapshot và đẩy cấu hình.</li>
+        </ul>
+      </div>
+
+      <div class="comp-col">
+        <h4><i class="fa-solid fa-user-tag" style="color: var(--primary);"></i> Vậy "Context" Đến Từ Đâu Và Ai Xử Lý?</h4>
+        <p style="color: var(--text-secondary); font-size: 13.5px; margin-bottom: 12px;">
+          <strong>Context</strong> là ngữ cảnh động của người dùng cuối khi họ đang truy cập app:
+        </p>
+        <ul>
+          <li><strong>Ai đang login/request?</strong> &rarr; Username (ví dụ <code>vtit1</code>, <code>vtit2</code>).</li>
+          <li><strong>Vai trò là gì?</strong> &rarr; Role (<code>BUYER</code>, <code>SELLER</code>, <code>SHIPPER</code>).</li>
+          <li><strong>IP mạng từ đâu?</strong> &rarr; Client IP (<code>172.19.0.1</code> hoặc <code>127.0.0.1</code>).</li>
+          <li><strong>Thời gian nào?</strong> &rarr; Request Time (ngày giờ hiện tại).</li>
+          <li>👉 <strong>Tất cả Context này do chính Tracking Order tự trích xuất từ HTTP Request và Spring SecurityContextHolder tại chỗ</strong>, không cần ai gửi từ bên ngoài!</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="code-box">
+      <div class="code-header">
+        <span>Admin-Feature-Flag-Service &bull; FeatureFlagServiceClient.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="cm">// admin-service chỉ gửi quyền sở hữu cờ (isGranted), KHÔNG hề có username/IP của người dùng:</span>
+<span class="kw">public boolean</span> <span class="fn">syncCustomerFeatureFlag</span>(String customerCode, String flagName, <span class="kw">boolean</span> isGranted) {
+    String url = featureFlagServiceUrl + <span class="str">"/api/v1/flags/customers/"</span> + customerCode + <span class="str">"/features/"</span> + flagName;
+    CustomerFeatureFlagSyncReq req = CustomerFeatureFlagSyncReq.builder()
+            .isGranted(isGranted) <span class="cm">// Chỉ gửi cờ Super Admin cấp phép</span>
+            .enabled(isGranted)
+            .build();
+
+    ResponseEntity&lt;String&gt; response = restTemplate.exchange(url, HttpMethod.PUT, <span class="kw">new</span> HttpEntity&lt;&gt;(req, headers), String.<span class="kw">class</span>);
+    <span class="kw">return</span> response.getStatusCode().is2xxSuccessful();
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- SECTION 4: TẠI SAO KHÔNG CẦN LOGIN? -->
+  <section id="section-auth-explanation">
+    <div class="section-title">
+      <i class="fa-solid fa-key"></i>
+      4. Tại Sao Ở Feature-Flag Fix Cứng Username/Password Nhưng Khi Dùng Với Tracking Order Thì Không Cần Login?
+    </div>
+    <p style="color: var(--text-secondary); margin-bottom: 16px;">
+      Đây là thắc mắc rất thú vị! Câu trả lời nằm ở <strong>2 thiết kế kỹ thuật độc lập</strong> trong mã nguồn:
+    </p>
+
+    <div class="flow-diagram">
+      <div class="flow-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">
+            <i class="fa-solid fa-shield-halved" style="color: var(--warning);"></i>
+            Lý do 1: Cấu hình Spring Security cho phép mở cổng REST API công khai
+          </div>
+          <div class="step-desc">
+            Trong file <code>SecurityConfig.java</code> của <code>feature-flag-service</code>, cặp tài khoản fix cứng <code>admin / 123456</code> được sinh ra <strong>CHỈ ĐỂ BẢO VỆ GIAO DIỆN WEB</strong> của thư viện Togglz (<code>/togglz-console/**</code>). Còn lại, toàn bộ đường dẫn REST API <code>/api/v1/flags/**</code> được cấu hình <strong><code>.permitAll()</code></strong>:
+          </div>
+          <div class="code-box">
+            <div class="code-header">
+              <span>feature-flag-service &bull; SecurityConfig.java</span>
+              <span class="code-lang">Java</span>
+            </div>
+            <pre><code>http.authorizeHttpRequests(auth -&gt; auth
+    <span class="cm">// Mở tự do cho các service khác gọi REST API trao đổi dữ liệu:</span>
+    .requestMatchers(<span class="str">"/api/v1/flags/**"</span>).<span class="fn">permitAll()</span> 
+    <span class="cm">// Chỉ khóa giao diện Web Togglz Console trên trình duyệt:</span>
+    .requestMatchers(<span class="str">"/togglz-console/**"</span>).<span class="fn">hasRole("FEATURE_ADMIN")</span> 
+    .anyRequest().authenticated()
+)</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">
+            <i class="fa-solid fa-bolt" style="color: var(--success);"></i>
+            Lý do 2: Kiến Trúc Đẩy Cấu Hình Cục Bộ (Decoupled Snapshot Pattern)
+          </div>
+          <div class="step-desc">
+            Khách hàng (hoặc app di động/web) khi dùng <strong>Tracking Order</strong> <em>hoàn toàn không bao giờ gửi request sang Feature Flag Service</em>:
+            <ul style="margin-top: 8px; margin-left: 20px;">
+              <li>Feature Flag Service chỉ đóng vai trò "người giao hàng": Khi có thay đổi, nó chủ động gửi 1 HTTP POST kèm mã bí mật nội bộ <code>X-Internal-Token</code> sang Tracking Order qua endpoint <code>/api/v1/feature-flags/sync</code>.</li>
+              <li>Tracking Order nhận hàng, lưu vào bảng <code>feature_flag_configs</code> ngay trong cơ sở dữ liệu MySQL của chính nó.</li>
+              <li>Khi user <code>vtit1</code> hay <code>vtit2</code> đăng nhập, Tracking Order đọc ngay từ DB nội bộ của mình. Vì là giao tiếp nội bộ trong cùng 1 process, <strong>tốc độ là 0ms và hoàn toàn không cần đăng nhập vào Feature-Flag-Service</strong>!</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 5: LUỒNG NGHIỆP VỤ 3 TẦNG & CODE -->
+  <section id="section-workflow">
+    <div class="section-title">
+      <i class="fa-solid fa-diagram-project"></i>
+      5. Toàn Bộ Quy Trình 3 Tầng: Super Admin &rarr; Seller &rarr; End User
+    </div>
+    <p style="color: var(--text-secondary); margin-bottom: 20px;">
+      Mô hình phân cấp quản trị cờ 3 tầng giải quyết bài toán: Super Admin kiểm soát bản quyền bán gói phần mềm, Seller tự do bật tắt kinh doanh trong phạm vi được cấp, và End User trải nghiệm tính năng theo đúng luật:
+    </p>
+
+    <!-- TẦNG 1 -->
+    <div class="flow-diagram">
+      <div class="flow-step">
+        <div class="step-num">T1</div>
+        <div class="step-content">
+          <div class="step-title">
+            <span style="color: var(--purple);">TẦNG 1:</span> Super Admin Cấp Quyền Cho Tenant (Licensing)
+          </div>
+          <div class="step-desc">
+            Super Admin đăng nhập vào <strong>Admin Portal</strong>, chọn Tenant <code>Viettel Software (VTIT)</code> và bật cấp quyền cho 2 cờ: <code>BUY_NOW</code> và <code>ORDER_DETAIL</code>.
+          </div>
+          <ul style="color: var(--text-secondary); font-size: 13.5px; margin-left: 20px; margin-bottom: 12px;">
+            <li>Admin Service gọi PUT sang Feature Flag Service: lưu <code>is_granted = true</code> vào bảng <code>customer_feature_flags</code>.</li>
+            <li>Cờ nào <strong>không được cấp</strong> (như <code>PRICE_INCREASE</code>): <code>is_granted = false</code>.</li>
+          </ul>
+          <div class="code-box">
+            <div class="code-header">
+              <span>FeatureFlagServiceImpl.java &bull; Lưu quyền sở hữu cờ</span>
+              <span class="code-lang">Java</span>
+            </div>
+            <pre><code><span class="kw">if</span> (request.getIsGranted() != <span class="kw">null</span>) {
+    customerFeatureFlag.setIsGranted(request.getIsGranted()); <span class="cm">// Super Admin cấp phép</span>
+}</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- TẦNG 2 -->
+      <div class="flow-step">
+        <div class="step-num">T2</div>
+        <div class="step-content">
+          <div class="step-title">
+            <span style="color: var(--primary);">TẦNG 2:</span> Seller Quản Lý Cờ & Thiết Lập Chiến Lược (Seller Control & Rules)
+          </div>
+          <div class="step-desc">
+            Chủ shop (Seller của Viettel Software) đăng nhập vào <strong>Seller Console</strong>:
+          </div>
+          <ul style="color: var(--text-secondary); font-size: 13.5px; margin-left: 20px; margin-bottom: 12px;">
+            <li>Seller chỉ nhìn thấy 2 cờ được Super Admin cấp là <code>BUY_NOW</code> và <code>ORDER_DETAIL</code>. Cờ <code>PRICE_INCREASE</code> bị ẩn hoàn toàn khỏi màn hình.</li>
+            <li>Seller chủ động gạt tắt <code>ORDER_DETAIL</code> &rarr; <code>enabled = false</code>.</li>
+            <li>Với cờ <code>BUY_NOW</code>, Seller bật <code>enabled = true</code> và bấm <strong>Edit</strong> để thêm chiến lược:
+              <br>&rarr; Chọn loại: <strong>Users by name</strong> (mã <code>users_by_name</code>).
+              <br>&rarr; Chọn danh sách người dùng: <strong>vtit2</strong>.
+            </li>
+            <li>Seller bấm nút <strong>"Apply to Viettel Software"</strong>.</li>
+          </ul>
+
+          <div class="code-box">
+            <div class="code-header">
+              <span>FeatureFlagServiceImpl.java &bull; pushSnapshot (Chỉ gửi cờ được cấp)</span>
+              <span class="code-lang">Java</span>
+            </div>
+            <pre><code><span class="cm">// Lọc chỉ những cờ Super Admin đã cấp phép (isGranted == true) để đẩy sang:</span>
+List&lt;CustomerFeatureFlag&gt; grantedFlags = customerFeatureFlagRepo.findByCustomer(customer).stream()
+        .filter(cf -&gt; Boolean.TRUE.equals(cf.getIsGranted()))
+        .toList();
+
+<span class="cm">// Tạo snapshot tính toán: effectiveEnabled = isGranted &amp;&amp; enabled</span>
+features = grantedFlags.stream().map(cf -&gt; toSnapshotFeature(flag, version, customerCode)).toList();
+
+<span class="cm">// Gửi HTTP POST sang tracking-order-a:8080 với header X-Internal-Token</span>
+restTemplate.postForEntity(url + <span class="str">"/api/v1/feature-flags/sync"</span>, <span class="kw">new</span> HttpEntity&lt;&gt;(snapshot, headers), Map.<span class="kw">class</span>);</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- TẦNG 3 -->
+      <div class="flow-step">
+        <div class="step-num">T3</div>
+        <div class="step-content">
+          <div class="step-title">
+            <span style="color: var(--success);">TẦNG 3:</span> End-User Đăng Nhập & Đánh Giá Chiến Lược (Runtime Evaluation)
+          </div>
+          <div class="step-desc">
+            Khi người dùng thực hiện đăng nhập vào ứng dụng web của Viettel Software:
+          </div>
+
+          <div class="comparison-grid" style="margin-top: 15px;">
+            <div class="comp-col" style="border-left: 3px solid var(--danger);">
+              <h4 style="color: var(--danger);"><i class="fa-solid fa-user-xmark"></i> Trường hợp user "vtit1":</h4>
+              <ol style="margin-left: 18px; color: var(--text-secondary); font-size: 13px; line-height: 1.6;">
+                <li>Đăng nhập thành công, Spring Security lưu <code>auth.getName() = "vtit1"</code>.</li>
+                <li>Hàm <code>evaluateAll()</code> kiểm tra cờ <code>BUY_NOW</code>.</li>
+                <li>Cờ này có rule <code>users_by_name: "vtit2"</code>.</li>
+                <li>So khớp: <code>"vtit2".equalsIgnoreCase("vtit1")</code> &rarr; <strong>FALSE</strong>!</li>
+                <li>Kết quả trả về response: <code>"BUY_NOW": false</code>.</li>
+                <li>Giao diện: Nút <strong>Mua Ngay</strong> bị ẩn đi!</li>
+              </ol>
+            </div>
+
+            <div class="comp-col" style="border-left: 3px solid var(--success);">
+              <h4 style="color: var(--success);"><i class="fa-solid fa-user-check"></i> Trường hợp user "vtit2":</h4>
+              <ol style="margin-left: 18px; color: var(--text-secondary); font-size: 13px; line-height: 1.6;">
+                <li>Đăng nhập thành công, Spring Security lưu <code>auth.getName() = "vtit2"</code>.</li>
+                <li>Hàm <code>evaluateAll()</code> kiểm tra cờ <code>BUY_NOW</code>.</li>
+                <li>Cờ này có rule <code>users_by_name: "vtit2"</code>.</li>
+                <li>So khớp: <code>"vtit2".equalsIgnoreCase("vtit2")</code> &rarr; <strong>TRUE</strong>!</li>
+                <li>Kết quả trả về response: <code>"BUY_NOW": true</code>.</li>
+                <li>Giao diện: Nút <strong>Mua Ngay</strong> hiển thị nổi bật!</li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="code-box">
+            <div class="code-header">
+              <span>FeatureFlagConfigServiceImpl.java &bull; Hàm đánh giá Strategy tại Tracking Order</span>
+              <span class="code-lang">Java</span>
+            </div>
+            <pre><code><span class="kw">private boolean</span> <span class="fn">evaluateStrategy</span>(String strategyId, Map&lt;String, String&gt; params) {
+    <span class="kw">return switch</span> (strategyId.toLowerCase(Locale.ROOT)) {
+        <span class="kw">case</span> <span class="str">"username"</span>, <span class="str">"users_by_name"</span> -&gt; {
+            String users = params.getOrDefault(<span class="str">"users"</span>, <span class="str">""</span>);
+            String currentUser = getCurrentUsername(); <span class="cm">// Lấy username từ SecurityContext</span>
+            <span class="kw">if</span> (!hasText(currentUser) || !hasText(users)) <span class="kw">yield false</span>;
+            <span class="kw">yield</span> Arrays.stream(users.split(<span class="str">"[,\\s]+"</span>))
+                    .map(String::trim)
+                    .anyMatch(u -&gt; u.equalsIgnoreCase(currentUser));
+        }
+        <span class="cm">// Nếu không khớp rule nào hoặc strategy không hợp lệ:</span>
+        <span class="kw">default</span> -&gt; {
+            log.warn(<span class="str">"Unknown strategyId '{}' - treating as disabled"</span>, strategyId);
+            <span class="kw">yield false</span>; <span class="cm">// An toàn bảo mật: Chặn không cho kích hoạt tự do</span>
+        }
+    };
+}</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 6: BẢNG PHÂN QUYỀN TỔNG HỢP -->
+  <section id="section-summary">
+    <div class="section-title">
+      <i class="fa-solid fa-shield-check"></i>
+      6. Ma Trận Phân Quyền Giữa Các Chủ Thể
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Chủ Thể (Actor)</th>
+            <th>Giao Diện Quản Trị</th>
+            <th>Trường Dữ Liệu Tác Động</th>
+            <th>Phạm Vi Quyền Hạn</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong style="color: var(--purple);"><i class="fa-solid fa-crown"></i> Super Admin</strong></td>
+            <td>Admin Portal (Port 5174)</td>
+            <td><code>is_granted</code><br><code>customer_feature_flags</code></td>
+            <td>
+              &bull; Toàn quyền cấp phép/thu hồi tính năng đối với toàn bộ Tenant.<br>
+              &bull; Quyết định tính năng nào một công ty được phép có trong hợp đồng phần mềm.
+            </td>
+          </tr>
+          <tr>
+            <td><strong style="color: var(--primary);"><i class="fa-solid fa-user-tie"></i> Seller (Tenant Admin)</strong></td>
+            <td>Seller Console (Port 5173 / 5175)</td>
+            <td><code>enabled</code><br><code>strategies (JSON)</code></td>
+            <td>
+              &bull; Chỉ thấy các cờ có <code>is_granted = true</code>.<br>
+              &bull; Chủ động Bật/Tắt (Status On/Off) trong phạm vi shop của mình.<br>
+              &bull; Cấu hình điều kiện lọc đối tượng khách hàng (theo tên user, theo vai trò, theo ngày mở bán...).
+            </td>
+          </tr>
+          <tr>
+            <td><strong style="color: var(--success);"><i class="fa-solid fa-users"></i> End User (Khách hàng)</strong></td>
+            <td>Tracking-Order Storefront</td>
+            <td><em>Không có quyền chỉnh sửa</em></td>
+            <td>
+              &bull; Đóng vai trò cung cấp "Context" (Tôi là ai, IP nào, thời gian nào).<br>
+              &bull; Hệ thống tự động so khớp Context với Strategy để mở hoặc khóa các nút bấm/tính năng trên màn hình.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout success">
+      <i class="fa-solid fa-circle-check"></i>
+      <div>
+        <strong>Tóm Lại Công Thức Tính Trạng Thái Cờ Hoạt Động (Effective Status):</strong><br>
+        <code>CỜ HOẠT ĐỘNG = (isGranted == true) &amp;&amp; (enabled == true) &amp;&amp; (Strategy matched Context)</code>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>&copy; 2026 Multi-Tenant Feature Flag Architecture &bull; Designed for Scalability & High Performance</p>
+  </footer>
+
+</div>
+
+</body>
+</html>

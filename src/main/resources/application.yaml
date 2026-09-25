@@ -1,0 +1,35 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: admin-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/admin_db
+    username: root
+    password: root
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+feature-flag:
+  service:
+    url: ${FEATURE_FLAG_SERVICE_URL:http://localhost:8081}
+    service-a-url: ${FEATURE_FLAG_SERVICE_A_URL:http://localhost:8081}
+    service-b-url: ${FEATURE_FLAG_SERVICE_B_URL:http://localhost:8085}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    path: /swagger-ui.html
+    url: /openapi.yaml
+    doc-expansion: none
+    filter: true
+    display-request-duration: true
+    try-it-out-enabled: true
+    persist-authorization: true
+    tags-sorter: alpha
+    syntax-highlight:
+      theme: monokai

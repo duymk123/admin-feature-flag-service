@@ -1,0 +1,1283 @@
+openapi: 3.0.3
+info:
+  title: "Admin Feature Flag Service API"
+  description: |
+    # 🚩 Hệ Thống Quản Trị & Phân Quyền Feature Flag Tập Trung
+    
+    API dành cho **Super Admin** quản lý danh mục cờ toàn cục (Master Features), danh sách các Tenant/Khách hàng (Company A, Company B), và phân quyền cờ cho từng Tenant.
+    
+    ---
+    ### 🔐 Thông Tin Đăng Nhập Mặc Định
+    - **Tài khoản**: `admin`
+    - **Mật khẩu**: `1`
+    - Sau khi gọi API `/api/v1/auth/login`, lấy `token` dán vào nút **Authorize 🔓** (Bearer Token) để thực thi các API cần quyền quản trị.
+  version: "1.0.0"
+  contact:
+    name: "Viettel Software Development Team"
+    email: "admin@viettel.com.vn"
+
+servers:
+  - url: "http://localhost:8084"
+    description: "Local Docker Server (Port 8084)"
+  - url: "http://admin-feature-flag-service:8082"
+    description: "Docker Internal Network (Port 8082)"
+
+tags:
+  - name: "1. Authentication"
+    description: "Xác thực tài khoản và cấp phiên đăng nhập Super Admin"
+  - name: "2. Master Features"
+    description: "Quản lý danh mục cờ toàn hệ thống (Super Admin)"
+  - name: "3. Tenants Management"
+    description: "Quản lý danh sách các công ty / Instance khách hàng"
+  - name: "4. Tenant Feature Grants"
+    description: "Phân quyền cấp phép tính năng (Feature Flags) cho từng Tenant"
+  - name: "5. Internal Integration API"
+    description: "Endpoint nội bộ dành riêng cho feature-flag-service truy vấn danh sách cờ được cấp"
+  - name: "6. Audit Logs"
+    description: "Lịch sử chi tiết mọi thao tác cấp/thu hồi cờ của Super Admin"
+  - name: "7. Sync & Apply"
+    description: "Đồng bộ dữ liệu sang Feature-Flag-Service và đẩy snapshot cấu hình sang Tracking-Order"
+
+paths:
+  # ========================================================
+  # 1. AUTHENTICATION
+  # ========================================================
+  /api/v1/auth/login:
+    post:
+      tags:
+        - "1. Authentication"
+      summary: "Đăng nhập Super Admin"
+      description: "Đăng nhập với tài khoản cố định `admin / 1` để nhận Bearer session token."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: "admin"
+              password: "1"
+      responses:
+        '200':
+          description: "Đăng nhập thành công"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseLoginResponse'
+              example:
+                success: true
+                message: "Đăng nhập thành công!"
+                data:
+                  token: "admin-session-65da81c9-7ab4-4281-8a7c-e3eb5bd5d296"
+                  tokenType: "Bearer"
+                  username: "admin"
+                  role: "SUPER_ADMIN"
+                timestamp: "2026-09-03T17:30:00"
+
+  # ========================================================
+  # 2. MASTER FEATURES
+  # ========================================================
+  /api/v1/admin/master-features:
+    get:
+      tags:
+        - "2. Master Features"
+      summary: "Lấy danh sách tất cả Master Features"
+      description: "Trả về toàn bộ danh mục cờ tính năng hiện có trong toàn hệ thống."
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: "Danh sách Master Features"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseListMasterFeatureRes'
+              example:
+                success: true
+                message: "Success"
+                data:
+                  - id: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+                    featureKey: "BUY_NOW"
+                    name: "Mua Ngay (Buy Now)"
+                    description: "Cho phép hiển thị nút Mua Ngay và đặt hàng nhanh không cần qua giỏ hàng"
+                    isActive: true
+                    createdAt: "2026-09-03T10:00:00"
+                    updatedAt: "2026-09-03T10:00:00"
+                  - id: "db4fa862-7706-47a2-8fff-fbcb81d7b908"
+                    featureKey: "ORDER_DETAIL"
+                    name: "Chi Tiết Đơn Hàng (Order Detail)"
+                    description: "Cho phép xem thông tin lịch sử và hành trình chi tiết của đơn hàng"
+                    isActive: true
+                    createdAt: "2026-09-03T10:00:00"
+                    updatedAt: "2026-09-03T10:00:00"
+                  - id: "ad911030-20c9-439b-a92c-f41d75f34867"
+                    featureKey: "PRICE_INCREASE"
+                    name: "Tăng Giá Tự Động (Price Increase)"
+                    description: "Tính năng điều chỉnh giá sản phẩm tự động theo chiến dịch"
+                    isActive: true
+                    createdAt: "2026-09-03T10:00:00"
+                    updatedAt: "2026-09-03T10:00:00"
+                  - id: "faa28083-7c13-4a8b-a595-09885b21f3cd"
+                    featureKey: "COUPON_DISCOUNT"
+                    name: "Mã Giảm Giá (Coupon Discount)"
+                    description: "Cho phép nhập và áp dụng mã voucher khi thanh toán đơn hàng"
+                    isActive: true
+                    createdAt: "2026-09-03T10:00:00"
+                    updatedAt: "2026-09-03T10:00:00"
+                timestamp: "2026-09-03T17:30:00"
+    post:
+      tags:
+        - "2. Master Features"
+      summary: "Tạo Master Feature mới"
+      description: "Thêm một cờ tính năng mới vào hệ thống quản trị."
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MasterFeatureReq'
+            example:
+              featureKey: "FLASH_SALE"
+              name: "Giảm Giá Sốc (Flash Sale)"
+              description: "Hiển thị đồng hồ đếm ngược và bảng giá flash sale đặc biệt"
+              isActive: true
+      responses:
+        '201':
+          description: "Tạo Master Feature thành công"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseMasterFeatureRes'
+              example:
+                success: true
+                message: "Tạo Master Feature thành công"
+                data:
+                  id: "e481b992-11da-45c1-9abc-0129bc8112ae"
+                  featureKey: "FLASH_SALE"
+                  name: "Giảm Giá Sốc (Flash Sale)"
+                  description: "Hiển thị đồng hồ đếm ngược và bảng giá flash sale đặc biệt"
+                  isActive: true
+                  createdAt: "2026-09-03T17:30:00"
+                  updatedAt: "2026-09-03T17:30:00"
+                timestamp: "2026-09-03T17:30:00"
+
+  /api/v1/admin/master-features/{id}:
+    get:
+      tags:
+        - "2. Master Features"
+      summary: "Lấy chi tiết 1 Master Feature theo ID"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+      responses:
+        '200':
+          description: "Chi tiết Feature"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseMasterFeatureRes'
+              example:
+                success: true
+                message: "Success"
+                data:
+                  id: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+                  featureKey: "BUY_NOW"
+                  name: "Mua Ngay (Buy Now)"
+                  description: "Cho phép hiển thị nút Mua Ngay"
+                  isActive: true
+                  createdAt: "2026-09-03T10:00:00"
+                  updatedAt: "2026-09-03T10:00:00"
+                timestamp: "2026-09-03T17:30:00"
+    put:
+      tags:
+        - "2. Master Features"
+      summary: "Cập nhật thông tin Master Feature"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MasterFeatureReq'
+            example:
+              featureKey: "BUY_NOW"
+              name: "Mua Ngay Nhanh Chóng"
+              description: "Cập nhật mô tả mới cho tính năng Mua Ngay"
+              isActive: true
+      responses:
+        '200':
+          description: "Cập nhật thành công"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseMasterFeatureRes'
+              example:
+                success: true
+                message: "Cập nhật Master Feature thành công"
+                data:
+                  id: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+                  featureKey: "BUY_NOW"
+                  name: "Mua Ngay Nhanh Chóng"
+                  description: "Cập nhật mô tả mới cho tính năng Mua Ngay"
+                  isActive: true
+                  createdAt: "2026-09-03T10:00:00"
+                  updatedAt: "2026-09-03T17:30:00"
+                timestamp: "2026-09-03T17:30:00"
+    delete:
+      tags:
+        - "2. Master Features"
+      summary: "Xóa Master Feature theo ID"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+      responses:
+        '200':
+          description: "Xóa thành công"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+              example:
+                success: true
+                message: "Xóa Master Feature thành công"
+                data: null
+                timestamp: "2026-09-03T17:30:00"
+
+  /api/v1/admin/master-features/{id}/toggle:
+    patch:
+      tags:
+        - "2. Master Features"
+      summary: "Bật / Tắt nhanh trạng thái hoạt động của Master Feature"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+      responses:
+        '200':
+          description: "Chuyển trạng thái thành công"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseMasterFeatureRes'
+              example:
+                success: true
+                message: "Chuyển trạng thái Master Feature thành công"
+                data:
+                  id: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+                  featureKey: "BUY_NOW"
+                  name: "Mua Ngay (Buy Now)"
+                  description: "Cho phép hiển thị nút Mua Ngay"
+                  isActive: false
+                  createdAt: "2026-09-03T10:00:00"
+                  updatedAt: "2026-09-03T17:30:00"
+                timestamp: "2026-09-03T17:30:00"
+
+  # ========================================================
+  # 3. TENANTS MANAGEMENT
+  # ========================================================
+  /api/v1/admin/tenants:
+    get:
+      tags:
+        - "3. Tenants Management"
+      summary: "Lấy danh sách tất cả Tenants"
+      description: "Trả về danh sách khách hàng / instance kèm số lượng cờ đã được cấp phép."
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: "Danh sách Tenants"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseListTenantRes'
+              example:
+                success: true
+                message: "Success"
+                data:
+                  - id: "a819b521-12cd-48e2-b33a-969d2d0b5e43"
+                    tenantCode: "COMPANY_A"
+                    name: "Viettel Software - Company A"
+                    ipAddress: "127.0.0.1"
+                    serviceUrl: "http://tracking-order-a:8080"
+                    status: "ACTIVE"
+                    grantedFeatureCount: 3
+                    createdAt: "2026-09-03T10:00:00"
+                    updatedAt: "2026-09-03T10:00:00"
+                  - id: "b921c432-23de-49f3-a44b-878e1e1c6f54"
+                    tenantCode: "COMPANY_B"
+                    name: "Viettel Logistics - Company B"
+                    ipAddress: "127.0.0.1"
+                    serviceUrl: "http://tracking-order-b:8080"
+                    status: "ACTIVE"
+                    grantedFeatureCount: 2
+                    createdAt: "2026-09-03T10:00:00"
+                    updatedAt: "2026-09-03T10:00:00"
+                timestamp: "2026-09-03T17:30:00"
+    post:
+      tags:
+        - "3. Tenants Management"
+      summary: "Đăng ký Tenant mới (Dedicated Instance)"
+      description: "Đăng ký thêm một khách hàng / instance mới vào hệ thống."
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantReq'
+            example:
+              tenantCode: "COMPANY_C"
+              name: "Viettel Commerce - Company C"
+              ipAddress: "127.0.0.1"
+              serviceUrl: "http://tracking-order-c:8080"
+              status: "ACTIVE"
+      responses:
+        '201':
+          description: "Tạo Tenant thành công"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseTenantRes'
+              example:
+                success: true
+                message: "Tạo Tenant thành công"
+                data:
+                  id: "c102d543-34ef-50a4-b55c-989f2f2d7a65"
+                  tenantCode: "COMPANY_C"
+                  name: "Viettel Commerce - Company C"
+                  ipAddress: "127.0.0.1"
+                  serviceUrl: "http://tracking-order-c:8080"
+                  status: "ACTIVE"
+                  grantedFeatureCount: 0
+                  createdAt: "2026-09-03T17:30:00"
+                  updatedAt: "2026-09-03T17:30:00"
+                timestamp: "2026-09-03T17:30:00"
+
+  /api/v1/admin/tenants/{id}:
+    get:
+      tags:
+        - "3. Tenants Management"
+      summary: "Lấy thông tin Tenant theo ID"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "a819b521-12cd-48e2-b33a-969d2d0b5e43"
+      responses:
+        '200':
+          description: "Chi tiết Tenant"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseTenantRes'
+              example:
+                success: true
+                message: "Success"
+                data:
+                  id: "a819b521-12cd-48e2-b33a-969d2d0b5e43"
+                  tenantCode: "COMPANY_A"
+                  name: "Viettel Software - Company A"
+                  ipAddress: "127.0.0.1"
+                  serviceUrl: "http://tracking-order-a:8080"
+                  status: "ACTIVE"
+                  grantedFeatureCount: 3
+                  createdAt: "2026-09-03T10:00:00"
+                  updatedAt: "2026-09-03T10:00:00"
+                timestamp: "2026-09-03T17:30:00"
+    put:
+      tags:
+        - "3. Tenants Management"
+      summary: "Cập nhật thông tin Tenant"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "a819b521-12cd-48e2-b33a-969d2d0b5e43"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantReq'
+            example:
+              tenantCode: "COMPANY_A"
+              name: "Viettel Software Corporation"
+              ipAddress: "127.0.0.1"
+              serviceUrl: "http://tracking-order-a:8080"
+              status: "ACTIVE"
+      responses:
+        '200':
+          description: "Cập nhật thành công"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseTenantRes'
+              example:
+                success: true
+                message: "Cập nhật Tenant thành công"
+                data:
+                  id: "a819b521-12cd-48e2-b33a-969d2d0b5e43"
+                  tenantCode: "COMPANY_A"
+                  name: "Viettel Software Corporation"
+                  ipAddress: "127.0.0.1"
+                  serviceUrl: "http://tracking-order-a:8080"
+                  status: "ACTIVE"
+                  grantedFeatureCount: 3
+                  createdAt: "2026-09-03T10:00:00"
+                  updatedAt: "2026-09-03T17:30:00"
+                timestamp: "2026-09-03T17:30:00"
+    delete:
+      tags:
+        - "3. Tenants Management"
+      summary: "Xóa Tenant theo ID"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "a819b521-12cd-48e2-b33a-969d2d0b5e43"
+      responses:
+        '200':
+          description: "Xóa thành công"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseVoid'
+              example:
+                success: true
+                message: "Xóa Tenant thành công"
+                data: null
+                timestamp: "2026-09-03T17:30:00"
+
+  /api/v1/admin/tenants/by-code/{code}:
+    get:
+      tags:
+        - "3. Tenants Management"
+      summary: "Lấy thông tin Tenant theo mã (tenantCode)"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "COMPANY_A"
+      responses:
+        '200':
+          description: "Chi tiết Tenant"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseTenantRes'
+              example:
+                success: true
+                message: "Success"
+                data:
+                  id: "a819b521-12cd-48e2-b33a-969d2d0b5e43"
+                  tenantCode: "COMPANY_A"
+                  name: "Viettel Software - Company A"
+                  ipAddress: "127.0.0.1"
+                  serviceUrl: "http://tracking-order-a:8080"
+                  status: "ACTIVE"
+                  grantedFeatureCount: 3
+                  createdAt: "2026-09-03T10:00:00"
+                  updatedAt: "2026-09-03T10:00:00"
+                timestamp: "2026-09-03T17:30:00"
+
+  # ========================================================
+  # 4. TENANT FEATURE GRANTS
+  # ========================================================
+  /api/v1/admin/tenants/{tenantCode}/grants:
+    get:
+      tags:
+        - "4. Tenant Feature Grants"
+      summary: "Xem danh sách cờ và trạng thái cấp quyền của Tenant"
+      description: "Trả về toàn bộ Master Features kèm trạng thái `isGranted: true/false` của Tenant được chỉ định."
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantCode
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "COMPANY_A"
+      responses:
+        '200':
+          description: "Danh sách phân quyền của Tenant"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseListTenantGrantRes'
+              example:
+                success: true
+                message: "Success"
+                data:
+                  - grantId: "389fae01-5231-41d3-9821-bcad092143ea"
+                    featureId: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+                    featureKey: "BUY_NOW"
+                    featureName: "Mua Ngay (Buy Now)"
+                    featureDescription: "Cho phép hiển thị nút Mua Ngay và đặt hàng nhanh"
+                    masterActive: true
+                    isGranted: true
+                    grantedAt: "2026-09-03T10:00:00"
+                    grantedBy: "admin"
+                  - grantId: "490abf12-6342-52e4-0932-cdbe103254fb"
+                    featureId: "db4fa862-7706-47a2-8fff-fbcb81d7b908"
+                    featureKey: "ORDER_DETAIL"
+                    featureName: "Chi Tiết Đơn Hàng (Order Detail)"
+                    featureDescription: "Cho phép xem thông tin lịch sử và hành trình đơn hàng"
+                    masterActive: true
+                    isGranted: true
+                    grantedAt: "2026-09-03T10:00:00"
+                    grantedBy: "admin"
+                  - grantId: "501bca23-7453-63f5-1043-decf214365ac"
+                    featureId: "ad911030-20c9-439b-a92c-f41d75f34867"
+                    featureKey: "PRICE_INCREASE"
+                    featureName: "Tăng Giá Tự Động (Price Increase)"
+                    featureDescription: "Tính năng điều chỉnh giá sản phẩm tự động"
+                    masterActive: true
+                    isGranted: false
+                    grantedAt: null
+                    grantedBy: null
+                  - grantId: "612cdb34-8564-74a6-2154-efda325476bd"
+                    featureId: "faa28083-7c13-4a8b-a595-09885b21f3cd"
+                    featureKey: "COUPON_DISCOUNT"
+                    featureName: "Mã Giảm Giá (Coupon Discount)"
+                    featureDescription: "Cho phép nhập và áp dụng mã voucher"
+                    masterActive: true
+                    isGranted: true
+                    grantedAt: "2026-09-03T10:00:00"
+                    grantedBy: "admin"
+                timestamp: "2026-09-03T17:30:00"
+
+  /api/v1/admin/tenants/{tenantCode}/grants/toggle:
+    post:
+      tags:
+        - "4. Tenant Feature Grants"
+      summary: "Bật / Tắt cấp quyền 1 cờ cụ thể cho Tenant (Ghi Audit Log)"
+      description: "Super Admin cấp phép (`GRANT`) hoặc thu hồi (`REVOKE`) quyền dùng 1 cờ tính năng cho khách hàng."
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantCode
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "COMPANY_A"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantGrantToggleReq'
+            example:
+              featureKey: "PRICE_INCREASE"
+              isGranted: true
+              performedBy: "admin"
+      responses:
+        '200':
+          description: "Cập nhật phân quyền thành công"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseTenantGrantRes'
+              example:
+                success: true
+                message: "Cập nhật phân quyền cờ thành công"
+                data:
+                  grantId: "501bca23-7453-63f5-1043-decf214365ac"
+                  featureId: "ad911030-20c9-439b-a92c-f41d75f34867"
+                  featureKey: "PRICE_INCREASE"
+                  featureName: "Tăng Giá Tự Động (Price Increase)"
+                  featureDescription: "Tính năng điều chỉnh giá sản phẩm tự động"
+                  masterActive: true
+                  isGranted: true
+                  grantedAt: "2026-09-03T17:30:00"
+                  grantedBy: "admin"
+                timestamp: "2026-09-03T17:30:00"
+
+  /api/v1/admin/tenants/{tenantCode}/grants/batch:
+    post:
+      tags:
+        - "4. Tenant Feature Grants"
+      summary: "Cập nhật hàng loạt danh sách cờ được cấp phép cho Tenant"
+      description: "Gửi danh sách tất cả các `featureKey` mà Tenant được phép dùng (những cờ không có trong list sẽ tự động bị REVOKE)."
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantCode
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "COMPANY_A"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantGrantBatchReq'
+            example:
+              grantedFeatureKeys:
+                - "BUY_NOW"
+                - "ORDER_DETAIL"
+                - "COUPON_DISCOUNT"
+              performedBy: "admin"
+      responses:
+        '200':
+          description: "Cập nhật danh sách thành công"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseListTenantGrantRes'
+              example:
+                success: true
+                message: "Cập nhật danh sách phân quyền thành công"
+                data:
+                  - grantId: "389fae01-5231-41d3-9821-bcad092143ea"
+                    featureId: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+                    featureKey: "BUY_NOW"
+                    featureName: "Mua Ngay (Buy Now)"
+                    featureDescription: "Cho phép hiển thị nút Mua Ngay"
+                    masterActive: true
+                    isGranted: true
+                    grantedAt: "2026-09-03T17:30:00"
+                    grantedBy: "admin"
+                  - grantId: "490abf12-6342-52e4-0932-cdbe103254fb"
+                    featureId: "db4fa862-7706-47a2-8fff-fbcb81d7b908"
+                    featureKey: "ORDER_DETAIL"
+                    featureName: "Chi Tiết Đơn Hàng (Order Detail)"
+                    featureDescription: "Cho phép xem thông tin lịch sử đơn hàng"
+                    masterActive: true
+                    isGranted: true
+                    grantedAt: "2026-09-03T17:30:00"
+                    grantedBy: "admin"
+                  - grantId: "612cdb34-8564-74a6-2154-efda325476bd"
+                    featureId: "faa28083-7c13-4a8b-a595-09885b21f3cd"
+                    featureKey: "COUPON_DISCOUNT"
+                    featureName: "Mã Giảm Giá (Coupon Discount)"
+                    featureDescription: "Cho phép nhập và áp dụng mã voucher"
+                    masterActive: true
+                    isGranted: true
+                    grantedAt: "2026-09-03T17:30:00"
+                    grantedBy: "admin"
+                timestamp: "2026-09-03T17:30:00"
+
+  # ========================================================
+  # 5. INTERNAL INTEGRATION API
+  # ========================================================
+  /api/v1/internal/tenants/{tenantCode}/allowed-features:
+    get:
+      tags:
+        - "5. Internal Integration API"
+      summary: "Lấy danh sách cờ được cấp phép cho Tenant"
+      description: "Endpoint nội bộ để `feature-flag-service` gọi sang kiểm tra cờ được phép dùng trước khi cho phép cấu hình."
+      parameters:
+        - name: tenantCode
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "COMPANY_A"
+      responses:
+        '200':
+          description: "Danh sách cờ được phép dùng"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseAllowedFeatureRes'
+              example:
+                success: true
+                message: "Success"
+                data:
+                  tenantCode: "COMPANY_A"
+                  tenantName: "Viettel Software - Company A"
+                  serviceUrl: "http://tracking-order-a:8080"
+                  allowedFeatureKeys:
+                    - "BUY_NOW"
+                    - "ORDER_DETAIL"
+                    - "COUPON_DISCOUNT"
+                timestamp: "2026-09-03T17:30:00"
+
+  # ========================================================
+  # 6. AUDIT LOGS
+  # ========================================================
+  /api/v1/admin/audit-logs:
+    get:
+      tags:
+        - "6. Audit Logs"
+      summary: "Xem toàn bộ lịch sử Audit Log"
+      description: "Danh sách tất cả các hành động GRANT / REVOKE cờ theo thời gian mới nhất."
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: "Toàn bộ lịch sử Audit"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseListAuditLogRes'
+              example:
+                success: true
+                message: "Success"
+                data:
+                  - id: "6c28f110-33da-41b1-b992-0199ba8821ad"
+                    tenantCode: "COMPANY_A"
+                    featureKey: "BUY_NOW"
+                    action: "GRANT"
+                    oldValue: "false"
+                    newValue: "true"
+                    performedBy: "admin"
+                    createdAt: "2026-09-03T17:30:00"
+                  - id: "7d39a221-44eb-52c2-ca03-1200cb9932be"
+                    tenantCode: "COMPANY_B"
+                    featureKey: "PRICE_INCREASE"
+                    action: "GRANT"
+                    oldValue: "false"
+                    newValue: "true"
+                    performedBy: "admin"
+                    createdAt: "2026-09-03T17:25:00"
+                timestamp: "2026-09-03T17:30:00"
+
+  /api/v1/admin/audit-logs/by-tenant/{tenantCode}:
+    get:
+      tags:
+        - "6. Audit Logs"
+      summary: "Xem lịch sử Audit Log của riêng 1 Tenant"
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tenantCode
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "COMPANY_A"
+      responses:
+        '200':
+          description: "Lịch sử Audit của Tenant"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponseListAuditLogRes'
+              example:
+                success: true
+                message: "Success"
+                data:
+                  - id: "6c28f110-33da-41b1-b992-0199ba8821ad"
+                    tenantCode: "COMPANY_A"
+                    featureKey: "BUY_NOW"
+                    action: "GRANT"
+                    oldValue: "false"
+                    newValue: "true"
+                    performedBy: "admin"
+                    createdAt: "2026-09-03T17:30:00"
+                timestamp: "2026-09-03T17:30:00"
+
+  # ========================================================
+  # 7. SYNC & APPLY
+  # ========================================================
+  /api/v1/admin/sync/sync-all-tenants:
+    post:
+      tags:
+        - "7. Sync & Apply"
+      summary: "Đồng bộ toàn bộ Tenants và Grants sang Feature-Flag-Service"
+      description: "Quét toàn bộ danh sách Tenants và Grants trong Admin DB, tạo/cập nhật Customer và CustomerFeatureFlag tương ứng trong Feature-Flag-Service."
+      responses:
+        '200':
+          description: "Đồng bộ thành công"
+          content:
+            application/json:
+              example:
+                status: "SUCCESS"
+                totalTenants: 2
+                syncedTenants: 2
+                failedTenants: 0
+                flagsSynced: 4
+
+  /api/v1/admin/sync/apply-all:
+    post:
+      tags:
+        - "7. Sync & Apply"
+      summary: "Apply cấu hình toàn bộ Tenants sang Tracking-Order"
+      description: "Kích hoạt Feature-Flag-Service đẩy cấu hình snapshot tức thời sang tất cả các instance Tracking-Order (Company A, Company B,...)."
+      responses:
+        '200':
+          description: "Apply thành công"
+          content:
+            application/json:
+              example:
+                COMPANY_A:
+                  status: "SUCCESS"
+                  serviceUrl: "http://tracking-order-a:8080"
+                COMPANY_B:
+                  status: "SUCCESS"
+                  serviceUrl: "http://tracking-order-b:8080"
+
+  /api/v1/admin/sync/apply/{tenantCode}:
+    post:
+      tags:
+        - "7. Sync & Apply"
+      summary: "Apply cấu hình cho 1 Tenant sang Tracking-Order"
+      description: "Kích hoạt Feature-Flag-Service đẩy cấu hình snapshot chỉ cho instance Tracking-Order của Tenant được chỉ định."
+      parameters:
+        - name: tenantCode
+          in: path
+          required: true
+          description: "Mã Tenant (VD: COMPANY_A, COMPANY_B)"
+          schema:
+            type: string
+          example: "COMPANY_A"
+      responses:
+        '200':
+          description: "Apply thành công cho Tenant"
+          content:
+            application/json:
+              example:
+                status: "SUCCESS"
+                serviceUrl: "http://tracking-order-a:8080"
+                customerCode: "COMPANY_A"
+
+# ========================================================
+# COMPONENTS & SCHEMAS
+# ========================================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Nhập token nhận được từ API /api/v1/auth/login (VD: admin / 1)"
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "admin"
+        password:
+          type: string
+          example: "1"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "admin-session-65da81c9-7ab4-4281-8a7c-e3eb5bd5d296"
+        tokenType:
+          type: string
+          example: "Bearer"
+        username:
+          type: string
+          example: "admin"
+        role:
+          type: string
+          example: "SUPER_ADMIN"
+
+    ApiResponseLoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Đăng nhập thành công!"
+        data:
+          $ref: '#/components/schemas/LoginResponse'
+        timestamp:
+          type: string
+          format: date-time
+
+    MasterFeatureReq:
+      type: object
+      required:
+        - featureKey
+        - name
+      properties:
+        featureKey:
+          type: string
+          example: "BUY_NOW"
+        name:
+          type: string
+          example: "Mua Ngay (Buy Now)"
+        description:
+          type: string
+          example: "Cho phép hiển thị nút Mua Ngay và đặt hàng nhanh"
+        isActive:
+          type: boolean
+          example: true
+
+    MasterFeatureRes:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+        featureKey:
+          type: string
+          example: "BUY_NOW"
+        name:
+          type: string
+          example: "Mua Ngay (Buy Now)"
+        description:
+          type: string
+          example: "Cho phép hiển thị nút Mua Ngay"
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ApiResponseMasterFeatureRes:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success"
+        data:
+          $ref: '#/components/schemas/MasterFeatureRes'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseListMasterFeatureRes:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MasterFeatureRes'
+        timestamp:
+          type: string
+          format: date-time
+
+    TenantReq:
+      type: object
+      required:
+        - tenantCode
+        - name
+      properties:
+        tenantCode:
+          type: string
+          example: "COMPANY_A"
+        name:
+          type: string
+          example: "Viettel Software - Company A"
+        ipAddress:
+          type: string
+          example: "127.0.0.1"
+        serviceUrl:
+          type: string
+          example: "http://tracking-order-a:8080"
+        status:
+          type: string
+          example: "ACTIVE"
+
+    TenantRes:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "a819b521-12cd-48e2-b33a-969d2d0b5e43"
+        tenantCode:
+          type: string
+          example: "COMPANY_A"
+        name:
+          type: string
+          example: "Viettel Software - Company A"
+        ipAddress:
+          type: string
+          example: "127.0.0.1"
+        serviceUrl:
+          type: string
+          example: "http://tracking-order-a:8080"
+        status:
+          type: string
+          example: "ACTIVE"
+        grantedFeatureCount:
+          type: integer
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ApiResponseTenantRes:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Tạo Tenant thành công"
+        data:
+          $ref: '#/components/schemas/TenantRes'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseListTenantRes:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantRes'
+        timestamp:
+          type: string
+          format: date-time
+
+    TenantGrantToggleReq:
+      type: object
+      required:
+        - featureKey
+        - isGranted
+      properties:
+        featureKey:
+          type: string
+          example: "PRICE_INCREASE"
+        isGranted:
+          type: boolean
+          example: true
+        performedBy:
+          type: string
+          example: "admin"
+
+    TenantGrantBatchReq:
+      type: object
+      properties:
+        grantedFeatureKeys:
+          type: array
+          items:
+            type: string
+          example: ["BUY_NOW", "ORDER_DETAIL", "COUPON_DISCOUNT"]
+        performedBy:
+          type: string
+          example: "admin"
+
+    TenantGrantRes:
+      type: object
+      properties:
+        grantId:
+          type: string
+          example: "389fae01-5231-41d3-9821-bcad092143ea"
+        featureId:
+          type: string
+          example: "855626df-9be2-4d71-98dd-b45cf8e8b219"
+        featureKey:
+          type: string
+          example: "BUY_NOW"
+        featureName:
+          type: string
+          example: "Mua Ngay (Buy Now)"
+        featureDescription:
+          type: string
+          example: "Cho phép hiển thị nút Mua Ngay và đặt hàng nhanh"
+        masterActive:
+          type: boolean
+          example: true
+        isGranted:
+          type: boolean
+          example: true
+        grantedAt:
+          type: string
+          format: date-time
+        grantedBy:
+          type: string
+          example: "admin"
+
+    ApiResponseTenantGrantRes:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Cập nhật phân quyền cờ thành công"
+        data:
+          $ref: '#/components/schemas/TenantGrantRes'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseListTenantGrantRes:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TenantGrantRes'
+        timestamp:
+          type: string
+          format: date-time
+
+    AllowedFeatureRes:
+      type: object
+      properties:
+        tenantCode:
+          type: string
+          example: "COMPANY_A"
+        tenantName:
+          type: string
+          example: "Viettel Software - Company A"
+        serviceUrl:
+          type: string
+          example: "http://tracking-order-a:8080"
+        allowedFeatureKeys:
+          type: array
+          items:
+            type: string
+          example: ["BUY_NOW", "ORDER_DETAIL", "COUPON_DISCOUNT"]
+
+    ApiResponseAllowedFeatureRes:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success"
+        data:
+          $ref: '#/components/schemas/AllowedFeatureRes'
+        timestamp:
+          type: string
+          format: date-time
+
+    AuditLogRes:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "6c28f110-33da-41b1-b992-0199ba8821ad"
+        tenantCode:
+          type: string
+          example: "COMPANY_A"
+        featureKey:
+          type: string
+          example: "BUY_NOW"
+        action:
+          type: string
+          example: "GRANT"
+        oldValue:
+          type: string
+          example: "false"
+        newValue:
+          type: string
+          example: "true"
+        performedBy:
+          type: string
+          example: "admin"
+        createdAt:
+          type: string
+          format: date-time
+
+    ApiResponseListAuditLogRes:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogRes'
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiResponseVoid:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Thao tác thành công"
+        data:
+          type: object
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
